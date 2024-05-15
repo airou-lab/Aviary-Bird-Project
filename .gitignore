@@ -1,1 +1,8 @@
 videos/
+dataset/
+videos/
+yolov5/runs/detect/
+dataset/
+videos/
+yolov5/runs/detect/
+!yolov5/runs/train/
