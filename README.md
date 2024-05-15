@@ -22,7 +22,7 @@ mkdir videos
 ```
 # 4). Put all the videos in the newly made directory
 
-# 5). Run Detection with YoloV5 with pre-trained model and Fine-tuned model.
+# 5). Run Detection with YoloV5 with pre-trained model.
 ```bash
 cd yolov5
 pip install -r requirements.txt
