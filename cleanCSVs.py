@@ -28,5 +28,5 @@ def clean_csv(file_path, output_path):
     df.to_csv(output_path, index=False)
 
 # Usage: (path to csv you want to be organized, new path to the new csv name and where you want it to be placed)
-clean_csv('/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/yolov5/runs/detect/Angle1_Output/predictions.csv', 
-          '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/csv/cleaned_output1.csv')
+clean_csv('/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/yolov5/runs/detect/Angle3_Output/predictions.csv', 
+          '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/csv/cleaned_output3.csv')
