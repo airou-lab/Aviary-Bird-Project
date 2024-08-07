@@ -52,7 +52,7 @@ You should be able to see results in the yolov5 folder -> runs -> detect -> exp2
 or it will print out where the video and results are save within the terminal output
 
 
-# Triangulation or 3D Reconstruction of two camera views
+# Triangulation or 3D Reconstruction of two camera views (Note most up to date reconstruction is Manual_result.py)
 
 # 1). Make proper directories.
 Make sure you are in home directory not in YOLOV5 directory
