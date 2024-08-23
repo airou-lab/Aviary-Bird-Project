@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import cv2
 import os
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # Load CSV files
 csv_path1 = '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/csv/cleaned_output1.csv'
@@ -140,6 +142,13 @@ for i in range(3):
     kf.x[:3] = point3D  # Set the initial position
     kalman_filters.append((kf, colors[i]))  # Add the Kalman filter and its associated color
 
+# Initialize 3D plot
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.set_xlabel('X axis')
+ax.set_ylabel('Y axis')
+ax.set_zlabel('Z axis')
+
 # Tracking loop
 image_dir1 = '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/frames/Camera1'
 image_dir2 = '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/frames/Camera2'
@@ -150,6 +159,9 @@ video_writer = cv2.VideoWriter(output_video_path, fourcc, 30.0, (1920, 1080))
 
 def euclidean_distance(pointA, pointB):
     return np.linalg.norm(pointA - pointB)
+
+# Store trajectories
+trajectories = {i: [] for i in range(3)}
 
 for frame_num in range(2, max(data1['Frame'].max(), data2['Frame'].max()) + 1):
     frame_path1 = os.path.join(image_dir1, f'frame_{frame_num:04d}.jpg')
@@ -172,7 +184,7 @@ for frame_num in range(2, max(data1['Frame'].max(), data2['Frame'].max()) + 1):
     unmatched_detections1 = set(range(len(detections1)))
     unmatched_detections2 = set(range(len(detections2)))
 
-    for kf, color in kalman_filters:
+    for i, (kf, color) in enumerate(kalman_filters):
         predicted_point3D = kf.predict()
         
         best_dist, best_det1, best_det2 = float('inf'), None, None
@@ -194,6 +206,7 @@ for frame_num in range(2, max(data1['Frame'].max(), data2['Frame'].max()) + 1):
         if best_det1 is not None and best_det2 is not None:
             new_point3D = triangulate_point(best_det1, best_det2, proj_matrix1, proj_matrix2)
             kf.update(new_point3D)
+            trajectories[i].append(new_point3D.flatten())  # Save the 3D point to trajectory
             
             cv2.rectangle(frame1, (int(best_det1[0]), int(best_det1[1])), (int(best_det1[2]), int(best_det1[3])), color, 2)
             cv2.rectangle(frame2, (int(best_det2[0]), int(best_det2[1])), (int(best_det2[2]), int(best_det2[3])), color, 2)
@@ -223,6 +236,14 @@ for frame_num in range(2, max(data1['Frame'].max(), data2['Frame'].max()) + 1):
     
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+# Plot 3D trajectories
+for i, trajectory in trajectories.items():
+    trajectory = np.array(trajectory)
+    ax.plot(trajectory[:, 0], trajectory[:, 1], trajectory[:, 2], color=np.array(colors[i])/255.0, label=f'Bird {i+1}')
+
+ax.legend()
+plt.show()
 
 video_writer.release()
 cv2.destroyAllWindows()
