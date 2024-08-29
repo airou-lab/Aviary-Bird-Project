@@ -3,60 +3,68 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-# Paths to the images
+# Paths to the images captured from three different cameras in the aviary
 image_path1 = '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/frames/For_Keon_1/frame_0615.jpg'
 image_path2 = '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/frames/For_Keon_2/frame_0615.jpg'
 image_path3 = '/Users/ethanhaque/repos/Test Repo/Aviary-Bird-Project/processed_data/frames/For_Keon_3/frame_0615.jpg'
 
-# Parameters for manual point selection
+# Parameters to specify how many points will be manually selected per bird, and how many birds are being tracked
 num_points_per_bird = 10
 num_birds = 2
 
-# Load the selected points
+# Function to load the manually selected points from a file
 def load_selected_points(filename):
+    # Create a dictionary to store points for each bird
     points = {f'bird_{i+1}': [] for i in range(num_birds)}
+    # Read points from the file
     with open(filename, 'r') as f:
         for line in f:
             bird_id, x, y = line.strip().split(',')
-            points[bird_id].append((int(x), int(y)))
+            points[bird_id].append((int(x), int(y)))  # Add points to the dictionary
     return points
 
-# Load the manually selected points
-selected_points_cam1 = load_selected_points('/selected_points_cam/selected_points_cam1.txt')
-selected_points_cam2 = load_selected_points('/selected_points_cam/selected_points_cam2.txt')
-selected_points_cam3 = load_selected_points('/selected_points_camselected_points_cam3.txt')
+# Load manually selected points from text files for each camera view
+selected_points_cam1 = load_selected_points('selected_points_cam1.txt')
+selected_points_cam2 = load_selected_points('selected_points_cam2.txt')
+selected_points_cam3 = load_selected_points('selected_points_cam3.txt')
 
-# Function to triangulate points
+# Function to triangulate 3D points from corresponding 2D points in two camera views
 def triangulate_points(pts1, pts2, proj_matrix1, proj_matrix2):
-    pts1 = np.array(pts1, dtype='float32').T
-    pts2 = np.array(pts2, dtype='float32').T
-    points_4d = cv2.triangulatePoints(proj_matrix1, proj_matrix2, pts1, pts2)
-    points_3d = points_4d[:3] / points_4d[3]
-    return points_3d.T
+    pts1 = np.array(pts1, dtype='float32').T  # Convert points from the first camera to numpy array and transpose
+    pts2 = np.array(pts2, dtype='float32').T  # Convert points from the second camera to numpy array and transpose
+    points_4d = cv2.triangulatePoints(proj_matrix1, proj_matrix2, pts1, pts2)  # Perform triangulation
+    points_3d = points_4d[:3] / points_4d[3]  # Convert homogeneous coordinates to 3D coordinates
+    return points_3d.T  # Transpose the result to match the original shape
 
-# Function to filter outliers
+# Function to filter outliers based on expected ranges for the 3D points
 def filter_outliers(points_3d, x_range, y_range, z_range):
+    # Create a mask to filter points within the expected x, y, z ranges
     mask = ((points_3d[:, 0] >= x_range[0]) & (points_3d[:, 0] <= x_range[1]) &
             (points_3d[:, 1] >= y_range[0]) & (points_3d[:, 1] <= y_range[1]) &
             (points_3d[:, 2] >= z_range[0]) & (points_3d[:, 2] <= z_range[1]))
-    return points_3d[mask]
+    return points_3d[mask]  # Return only the points that are within the expected ranges
 
-# Camera intrinsic parameters
+# Camera intrinsic parameters (K matrix)
 K = np.array([[8.28013819e+02, 0.00000000e+00, 1.01014119e+03],
               [0.00000000e+00, 8.20546041e+02, 8.21208275e+02],
               [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+
+# Rotation vectors for each camera
 rvecs = [np.array([[-0.40848219], [-0.04476641], [-1.36582084]]),
          np.array([[-0.57560136], [0.06694504], [0.01289696]]),
          np.array([[-0.0139436], [1.02401999], [2.95480862]])]
+
+# Translation vectors for each camera
 tvecs = [np.array([[-2.64222845], [0.4595596], [1.91394887]]),
          np.array([[-1.20345239], [-2.50698575], [3.88573475]]),
          np.array([[1.15682178], [1.07354459], [1.30999783]])]
 
+# Calculate projection matrices for each camera by combining intrinsic and extrinsic parameters
 proj_matrix1 = K @ np.hstack((cv2.Rodrigues(rvecs[0])[0], tvecs[0]))
 proj_matrix2 = K @ np.hstack((cv2.Rodrigues(rvecs[1])[0], tvecs[1]))
 proj_matrix3 = K @ np.hstack((cv2.Rodrigues(rvecs[2])[0], tvecs[2]))
 
-# Triangulate points using manually selected points
+# Triangulate 3D points for each bird using pairs of camera views
 points_3d_bird1_cam1_cam2 = triangulate_points(selected_points_cam1['bird_1'], selected_points_cam2['bird_1'], proj_matrix1, proj_matrix2)
 points_3d_bird1_cam2_cam3 = triangulate_points(selected_points_cam2['bird_1'], selected_points_cam3['bird_1'], proj_matrix2, proj_matrix3)
 points_3d_bird1_cam1_cam3 = triangulate_points(selected_points_cam1['bird_1'], selected_points_cam3['bird_1'], proj_matrix1, proj_matrix3)
@@ -65,12 +73,12 @@ points_3d_bird2_cam1_cam2 = triangulate_points(selected_points_cam1['bird_2'], s
 points_3d_bird2_cam2_cam3 = triangulate_points(selected_points_cam2['bird_2'], selected_points_cam3['bird_2'], proj_matrix2, proj_matrix3)
 points_3d_bird2_cam1_cam3 = triangulate_points(selected_points_cam1['bird_2'], selected_points_cam3['bird_2'], proj_matrix1, proj_matrix3)
 
-# Define the expected range of the aviary
+# Define the expected physical dimensions of the aviary for outlier filtering
 x_range = (0, 2.44)
 y_range = (0, 4.572)
 z_range = (-0.5, 0.5)
 
-# Filter outliers
+# Filter out 3D points that fall outside the expected range
 points_3d_bird1_cam1_cam2 = filter_outliers(points_3d_bird1_cam1_cam2, x_range, y_range, z_range)
 points_3d_bird1_cam2_cam3 = filter_outliers(points_3d_bird1_cam2_cam3, x_range, y_range, z_range)
 points_3d_bird1_cam1_cam3 = filter_outliers(points_3d_bird1_cam1_cam3, x_range, y_range, z_range)
@@ -79,11 +87,11 @@ points_3d_bird2_cam1_cam2 = filter_outliers(points_3d_bird2_cam1_cam2, x_range, 
 points_3d_bird2_cam2_cam3 = filter_outliers(points_3d_bird2_cam2_cam3, x_range, y_range, z_range)
 points_3d_bird2_cam1_cam3 = filter_outliers(points_3d_bird2_cam1_cam3, x_range, y_range, z_range)
 
-# Function to compute the average 3D point
+# Function to compute the average of 3D points
 def compute_average_point(points_3d):
     return np.mean(points_3d, axis=0)
 
-# Compute the average 3D points for each bird
+# Compute average 3D points for each bird from each pair of camera views
 avg_point_bird1_cam1_cam2 = compute_average_point(points_3d_bird1_cam1_cam2)
 avg_point_bird1_cam2_cam3 = compute_average_point(points_3d_bird1_cam2_cam3)
 avg_point_bird1_cam1_cam3 = compute_average_point(points_3d_bird1_cam1_cam3)
@@ -92,7 +100,7 @@ avg_point_bird2_cam1_cam2 = compute_average_point(points_3d_bird2_cam1_cam2)
 avg_point_bird2_cam2_cam3 = compute_average_point(points_3d_bird2_cam2_cam3)
 avg_point_bird2_cam1_cam3 = compute_average_point(points_3d_bird2_cam1_cam3)
 
-# Visualize average 3D points from different camera perspectives
+# Function to visualize the average 3D points from the perspective of each camera
 def visualize_avg_3d_points(avg_point_bird1, avg_point_bird2, rvecs, tvecs, filename_prefix):
     fig = plt.figure(figsize=(18, 6))
     
@@ -130,38 +138,42 @@ def visualize_avg_3d_points(avg_point_bird1, avg_point_bird2, rvecs, tvecs, file
     ax3.legend()
     
     fig.suptitle('Average 3D Points from Camera Perspectives')
-    plt.savefig(f'{filename_prefix}.png')
+    plt.savefig(f'{filename_prefix}.png')  # Save the visualization as a PNG image
     plt.show()
 
-# Visualize average 3D points from each camera perspective
+# Visualize average 3D points from each camera perspective for both birds
 visualize_avg_3d_points(avg_point_bird1_cam1_cam2, avg_point_bird2_cam1_cam2, rvecs, tvecs, 'avg_3d_points_perspective_cam1_cam2')
 visualize_avg_3d_points(avg_point_bird1_cam2_cam3, avg_point_bird2_cam2_cam3, rvecs, tvecs, 'avg_3d_points_perspective_cam2_cam3')
 visualize_avg_3d_points(avg_point_bird1_cam1_cam3, avg_point_bird2_cam1_cam3, rvecs, tvecs, 'avg_3d_points_perspective_cam1_cam3')
 
-# Visualize birds in images
+# Function to visualize the manually selected bird points in the images
 def visualize_birds_in_images(image_path, points, color):
-    image = cv2.imread(image_path)
+    image = cv2.imread(image_path)  # Load the image
     for point in points:
-        cv2.circle(image, point, 5, color, -1)
+        cv2.circle(image, point, 5, color, -1)  # Draw circles at the selected points
     return image
 
-proj_image1_bird1 = visualize_birds_in_images(image_path1, selected_points_cam1['bird_1'], (0, 0, 255))
+# Visualize bird 1's points in images from each camera
+proj_image1_bird1 = visualize_birds_in_images(image_path1, selected_points_cam1['bird_1'], (0, 0, 255))  # Red for bird 1
 proj_image2_bird1 = visualize_birds_in_images(image_path2, selected_points_cam2['bird_1'], (0, 0, 255))
 proj_image3_bird1 = visualize_birds_in_images(image_path3, selected_points_cam3['bird_1'], (0, 0, 255))
 
-proj_image1_bird2 = visualize_birds_in_images(image_path1, selected_points_cam1['bird_2'], (255, 0, 0))
+# Visualize bird 2's points in images from each camera
+proj_image1_bird2 = visualize_birds_in_images(image_path1, selected_points_cam1['bird_2'], (255, 0, 0))  # Blue for bird 2
 proj_image2_bird2 = visualize_birds_in_images(image_path2, selected_points_cam2['bird_2'], (255, 0, 0))
 proj_image3_bird2 = visualize_birds_in_images(image_path3, selected_points_cam3['bird_2'], (255, 0, 0))
 
-# Save and display projected points
+# Save and display the images with projected points for bird 1
 cv2.imwrite('proj_image_1_bird1.png', proj_image1_bird1)
 cv2.imwrite('proj_image_2_bird1.png', proj_image2_bird1)
 cv2.imwrite('proj_image_3_bird1.png', proj_image3_bird1)
 
+# Save and display the images with projected points for bird 2
 cv2.imwrite('proj_image_1_bird2.png', proj_image1_bird2)
 cv2.imwrite('proj_image_2_bird2.png', proj_image2_bird2)
 cv2.imwrite('proj_image_3_bird2.png', proj_image3_bird2)
 
+# Display images with manually selected points for bird 1 across the three cameras
 plt.figure(figsize=(15, 5))
 plt.subplot(1, 3, 1)
 plt.imshow(cv2.cvtColor(proj_image1_bird1, cv2.COLOR_BGR2RGB))
@@ -174,6 +186,7 @@ plt.imshow(cv2.cvtColor(proj_image3_bird1, cv2.COLOR_BGR2RGB))
 plt.title('Projected Bird 1 - Camera 3')
 plt.show()
 
+# Display images with manually selected points for bird 2 across the three cameras
 plt.figure(figsize=(15, 5))
 plt.subplot(1, 3, 1)
 plt.imshow(cv2.cvtColor(proj_image1_bird2, cv2.COLOR_BGR2RGB))
